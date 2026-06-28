@@ -42,16 +42,32 @@ jobs:
 
           if [[ -f package.json ]]; then
             project_dir="."
+            has_package="true"
           else
-            mapfile -t package_files < <(find . -maxdepth 3 -name package.json -not -path "*/node_modules/*" | sort)
+            mapfile -t package_files < <(find . -maxdepth 5 -name package.json -not -path "*/node_modules/*" -not -path "*/.git/*" | sort)
 
-            if [[ "${#package_files[@]}" -ne 1 ]]; then
-              echo "Expected exactly one package.json, found ${#package_files[@]}."
+            if [[ "${#package_files[@]}" -gt 1 ]]; then
+              echo "Expected at most one package.json, found ${#package_files[@]}."
               printf '%s\n' "${package_files[@]}"
               exit 1
             fi
 
-            project_dir="$(dirname "${package_files[0]}")"
+            if [[ "${#package_files[@]}" -eq 1 ]]; then
+              project_dir="$(dirname "${package_files[0]}")"
+              has_package="true"
+            else
+              mapfile -t web_dirs < <(find . -maxdepth 5 -type d -name web -not -path "*/node_modules/*" -not -path "*/.git/*" | sort)
+
+              if [[ "${#web_dirs[@]}" -ne 1 ]]; then
+                echo "No package.json was found, and expected exactly one web directory, found ${#web_dirs[@]}."
+                echo "Repository root contents:"
+                find . -maxdepth 2 -not -path "*/.git/*" | sort
+                exit 1
+              fi
+
+              project_dir="$(dirname "${web_dirs[0]}")"
+              has_package="false"
+            fi
           fi
 
           if [[ ! -d "$project_dir/web" ]]; then
@@ -61,14 +77,18 @@ jobs:
 
           echo "dir=$project_dir" >> "$GITHUB_OUTPUT"
           echo "web=$project_dir/web" >> "$GITHUB_OUTPUT"
+          echo "has_package=$has_package" >> "$GITHUB_OUTPUT"
           echo "Using project directory: $project_dir"
+          echo "Package scripts available: $has_package"
 
       - name: Set up Node
+        if: steps.project.outputs.has_package == 'true'
         uses: actions/setup-node@v6
         with:
           node-version: 22
 
       - name: Install dependencies
+        if: steps.project.outputs.has_package == 'true'
         working-directory: ${{ steps.project.outputs.dir }}
         run: |
           if [ -f package-lock.json ]; then
@@ -78,10 +98,12 @@ jobs:
           fi
 
       - name: Test
+        if: steps.project.outputs.has_package == 'true'
         working-directory: ${{ steps.project.outputs.dir }}
         run: npm test
 
       - name: Build vocab seed artifact
+        if: steps.project.outputs.has_package == 'true'
         working-directory: ${{ steps.project.outputs.dir }}
         run: npm run seed:vocab
 
