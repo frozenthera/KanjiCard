@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#f4f6f8">
+    <title>JLPT Kanji Cards</title>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1>漢字カード</h1>
+          <p id="deckSummary" class="muted"></p>
+        </div>
+        <div id="accountPanel" class="account-panel" aria-live="polite">
+          <div>
+            <div id="authStatus" class="auth-status">Local mode</div>
+            <div id="syncStatus" class="sync-status"></div>
+          </div>
+          <button id="signInButton" class="primary-button account-button" type="button" hidden>Google login</button>
+          <button id="signOutButton" class="text-button account-button" type="button" hidden>Sign out</button>
+        </div>
+      </header>
+
+      <nav class="tab-nav" role="tablist" aria-label="화면 전환">
+        <button id="studyTabButton" class="tab-button active" type="button" role="tab" aria-selected="true" aria-controls="studyPanel">학습</button>
+        <button id="mistakeTabButton" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="mistakePanel">오답률</button>
+        <button id="settingsTabButton" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="settingsPanel">설정</button>
+      </nav>
+
+      <section id="studyPanel" class="study-panel" role="tabpanel" aria-labelledby="studyTabButton">
+        <main class="study-layout">
+          <section class="study-main" aria-live="polite">
+            <div class="session-meter" aria-hidden="true">
+              <div id="sessionProgressBar"></div>
+            </div>
+
+            <div id="cardStage" class="card-stage">
+              <article id="wordCard" class="word-card" tabindex="0" aria-label="단어 카드">
+                <div class="swipe-mark swipe-mark-left">모름</div>
+                <div class="swipe-mark swipe-mark-right">알고 있음</div>
+                <div id="levelBadge" class="level-badge" hidden></div>
+                <div id="kanjiText" class="kanji-text"></div>
+              </article>
+            </div>
+
+            <div id="choiceButtons" class="choice-row">
+              <button id="unknownButton" class="choice-button unknown" type="button">← 모름</button>
+              <button id="knownButton" class="choice-button known" type="button">알고 있음 →</button>
+              <button id="nextButton" class="choice-button next-button" type="button" hidden>다음 카드로</button>
+              <button id="studyNewSessionButton" class="choice-button study-new-session-button" type="button" hidden>새 세션</button>
+            </div>
+
+            <section id="answerPanel" class="answer-panel" hidden>
+              <div id="answerReading" class="answer-reading"></div>
+              <div id="answerMeaning" class="answer-meaning"></div>
+              <div id="answerStats" class="answer-stats"></div>
+            </section>
+          </section>
+
+          <aside class="stats-panel" aria-label="세션 통계">
+            <div class="stat-row">
+              <span>진행</span>
+              <strong id="progressStat">0/0</strong>
+            </div>
+            <div class="stat-row">
+              <span>정답</span>
+              <strong id="knownStat">0</strong>
+            </div>
+            <div class="stat-row">
+              <span>오답</span>
+              <strong id="unknownStat">0</strong>
+            </div>
+            <div class="stat-row">
+              <span>평균 고민</span>
+              <strong id="thinkStat">0.0초</strong>
+            </div>
+          </aside>
+        </main>
+      </section>
+
+      <section id="mistakePanel" class="mistake-panel" role="tabpanel" aria-labelledby="mistakeTabButton" hidden>
+        <div class="mistake-header">
+          <div>
+            <h2>오답률</h2>
+            <p id="mistakeSummary" class="muted"></p>
+          </div>
+        </div>
+        <div class="mistake-filter-row" aria-label="오답률 급수 필터">
+          <span class="setting-label">급수</span>
+          <div id="mistakeLevelFilters" class="segmented mistake-level-filters" role="group" aria-label="오답률 JLPT 급수"></div>
+        </div>
+        <div id="mistakeList" class="mistake-list"></div>
+      </section>
+
+      <section id="settingsPanel" class="settings-panel" role="tabpanel" aria-labelledby="settingsTabButton" hidden>
+        <section class="settings-band" aria-label="학습 설정">
+          <div class="setting-group">
+            <span class="setting-label">레벨</span>
+            <div id="levelToggles" class="segmented" role="group" aria-label="JLPT 레벨"></div>
+          </div>
+
+          <label class="ratio-field">
+            <span>새롭게 제시되는 단어의 비율</span>
+            <div class="ratio-control">
+              <input id="newRatioSlider" class="ratio-slider" type="range" min="0" max="100" step="5">
+              <input id="newRatioInput" class="ratio-number" type="number" min="0" max="100" step="1" inputmode="numeric">
+            </div>
+          </label>
+
+          <label class="number-field">
+            <span>하루 학습량</span>
+            <input id="dailyStudySizeInput" type="number" min="1" max="80" step="1" inputmode="numeric">
+          </label>
+
+          <div class="settings-actions">
+            <button id="resetProgressButton" class="danger-button" type="button">초기화</button>
+          </div>
+        </section>
+      </section>
+    </div>
+
+    <script src="./firebase-config.js"></script>
+    <script src="./data/vocab.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
