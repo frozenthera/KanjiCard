@@ -34,15 +34,55 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Resolve project directory
+        id: project
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -f package.json ]]; then
+            project_dir="."
+          else
+            mapfile -t package_files < <(find . -maxdepth 3 -name package.json -not -path "*/node_modules/*" | sort)
+
+            if [[ "${#package_files[@]}" -ne 1 ]]; then
+              echo "Expected exactly one package.json, found ${#package_files[@]}."
+              printf '%s\n' "${package_files[@]}"
+              exit 1
+            fi
+
+            project_dir="$(dirname "${package_files[0]}")"
+          fi
+
+          if [[ ! -d "$project_dir/web" ]]; then
+            echo "Expected web directory at $project_dir/web."
+            exit 1
+          fi
+
+          echo "dir=$project_dir" >> "$GITHUB_OUTPUT"
+          echo "web=$project_dir/web" >> "$GITHUB_OUTPUT"
+          echo "Using project directory: $project_dir"
+
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
           node-version: 22
 
+      - name: Install dependencies
+        working-directory: ${{ steps.project.outputs.dir }}
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
       - name: Test
+        working-directory: ${{ steps.project.outputs.dir }}
         run: npm test
 
       - name: Build vocab seed artifact
+        working-directory: ${{ steps.project.outputs.dir }}
         run: npm run seed:vocab
 
       - name: Verify Firebase Pages config
@@ -55,8 +95,10 @@ jobs:
           test -n "$FIREBASE_APP_ID"
 
       - name: Write production Firebase config
+        env:
+          PROJECT_DIR: ${{ steps.project.outputs.dir }}
         run: |
-          cat > web/firebase-config.js <<EOF
+          cat > "$PROJECT_DIR/web/firebase-config.js" <<EOF
           window.JLPT_FIREBASE_CONFIG = {
             apiKey: "$FIREBASE_API_KEY",
             authDomain: "$FIREBASE_AUTH_DOMAIN",
@@ -68,7 +110,7 @@ jobs:
           window.JLPT_REQUIRE_GOOGLE_SIGN_IN = true;
           window.JLPT_FIREBASE_SDK_BASE = "$FIREBASE_SDK_BASE";
           EOF
-          touch web/.nojekyll
+          touch "$PROJECT_DIR/web/.nojekyll"
 
       - name: Configure Pages
         uses: actions/configure-pages@v6
@@ -76,7 +118,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: web
+          path: ${{ steps.project.outputs.web }}
           include-hidden-files: true
 
       - name: Deploy Pages
