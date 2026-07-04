@@ -3,7 +3,7 @@
   const SETTINGS_KEY = "jlpt-kanji-cards.settings";
   const PROGRESS_KEY = "jlpt-kanji-cards.progress";
   const DAY_MS = 24 * 60 * 60 * 1000;
-  const KANJI_ONLY = /^[\u3400-\u9fff々]+$/u;
+  const HAS_KANJI = /[\u3400-\u9fff\uF900-\uFAFF々]/u;
 
   const els = {
     deckSummary: document.getElementById("deckSummary"),
@@ -54,7 +54,7 @@
     sessionSize: 20
   };
 
-  const vocab = (window.JLPT_VOCAB || []).filter((word) => KANJI_ONLY.test(word.kanji));
+  const vocab = (window.JLPT_VOCAB || []).filter((word) => HAS_KANJI.test(word.kanji));
   let settings = normalizeSettings(readStorage(SETTINGS_KEY, defaultSettings));
   let progress = normalizeProgress(readStorage(PROGRESS_KEY, { words: {}, history: [] }));
   let session = createEmptySession();
@@ -1328,16 +1328,26 @@
     });
   }
 
-  function registerServiceWorker() {
+  function removeServiceWorkerCache() {
     if (!("serviceWorker" in navigator) || !/^https?:$/.test(window.location.protocol)) {
       return;
     }
 
-    navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+    navigator.serviceWorker.getRegistrations()
+      .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+      .catch(() => {});
+
+    if ("caches" in window) {
+      window.caches.keys()
+        .then((keys) =>
+          Promise.all(keys.filter((key) => key.startsWith("jlpt-kanji-cards-")).map((key) => window.caches.delete(key)))
+        )
+        .catch(() => {});
+    }
   }
 
   bindEvents();
   render();
   initializeFirebaseRuntime();
-  registerServiceWorker();
+  removeServiceWorkerCache();
 })();
