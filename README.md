@@ -15,6 +15,16 @@ node server.js
 
 Then open `http://localhost:4173`.
 
+## Publish and Build on Windows
+
+Run the repository batch file to test the web app, generate the Firestore seed artifact, build a debug APK, commit changed files with the required decision trailers, and push the current branch to GitHub:
+
+```powershell
+.\publish-and-build.bat "Describe why this change was made"
+```
+
+Double-clicking `publish-and-build.bat` also works. It prompts for the commit intent when tracked files have changed. The script stops before committing or pushing when tests, the credential scan, or the Android build fails. The APK is copied to `dist\KanjiCard-debug.apk`.
+
 ## Android Port
 
 The `android/` folder is a native Android WebView wrapper. It packages the same files from `web/` as Android assets, so there is no separate Android copy of the vocabulary or UI.
