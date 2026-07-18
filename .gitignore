@@ -1,17 +1,63 @@
 node_modules/
 dist/
+coverage/
+.nyc_output/
+
+# Local agent, editor, and OS state
 .agents/
 .codex/
 .omx/
 .migration-backup/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Environment files and credentials
+.env
+.env.*
+!.env.example
+.npmrc
+.pypirc
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+id_rsa
+id_ed25519
+credentials*.json
+*service-account*.json
+*service_account*.json
+gha-creds-*.json
+application_default_credentials.json
+google-services.json
+GoogleService-Info.plist
+
+# Firebase local state and logs
+.firebase/
+.firebaserc
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+
+# Android and Gradle build output
 .gradle/
 build/
 android/.gradle/
 android/build/
 android/app/build/
+android/app/release/
+*.apk
+*.aab
 *.iml
 local.properties
 *.bak-*
+
+# Local source material and nested tool dependencies
 tools/pagoda-pdfs/
 tools/pdf-extract/node_modules/
 web/firebase-debug.log
