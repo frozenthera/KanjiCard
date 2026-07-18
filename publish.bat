@@ -6,8 +6,6 @@ set "INTERACTIVE="
 if "%~1"=="" set "INTERACTIVE=1"
 set "COMMIT_INTENT=%~1"
 set "ROOT=%~dp0"
-set "APK_SOURCE=%ROOT%android\app\build\outputs\apk\debug\app-debug.apk"
-set "APK_OUTPUT=%ROOT%dist\KanjiCard-debug.apk"
 set "SCAN_OUTPUT=%TEMP%\kanjicard-secret-scan-%RANDOM%.txt"
 set "STATUS_OUTPUT=%TEMP%\kanjicard-status-%RANDOM%.txt"
 
@@ -28,19 +26,8 @@ if errorlevel 1 (
   goto :fail
 )
 
-where java.exe >nul 2>&1
-if errorlevel 1 (
-  set "ERROR_MESSAGE=Java 17 is not installed or is not available on PATH."
-  goto :fail
-)
-
 if not exist ".git" (
   set "ERROR_MESSAGE=This directory is not the KanjiCard Git repository."
-  goto :fail
-)
-
-if not exist "android\gradlew.bat" (
-  set "ERROR_MESSAGE=android\gradlew.bat is missing."
   goto :fail
 )
 
@@ -56,7 +43,7 @@ if errorlevel 1 (
   goto :fail
 )
 
-echo [1/7] Fetching origin/%BRANCH%...
+echo [1/5] Fetching origin/%BRANCH%...
 git fetch origin "%BRANCH%"
 if errorlevel 1 (
   set "ERROR_MESSAGE=Could not fetch origin/%BRANCH%."
@@ -72,38 +59,17 @@ if not "%BEHIND_COUNT%"=="0" (
   goto :fail
 )
 
-echo [2/7] Running web regression tests...
+echo [2/5] Running web regression tests...
 call npm.cmd test
 if errorlevel 1 (
   set "ERROR_MESSAGE=Web regression tests failed. Nothing was published."
   goto :fail
 )
 
-echo [3/7] Building the Firestore vocab seed artifact...
+echo [3/5] Building the Firestore vocab seed artifact...
 call npm.cmd run seed:vocab
 if errorlevel 1 (
   set "ERROR_MESSAGE=Firestore vocab seed generation failed. Nothing was published."
-  goto :fail
-)
-
-echo [4/7] Building the Android debug APK...
-pushd "android" >nul
-call gradlew.bat --no-daemon assembleDebug
-set "GRADLE_EXIT=%ERRORLEVEL%"
-popd >nul
-if not "%GRADLE_EXIT%"=="0" (
-  set "ERROR_MESSAGE=Android build failed. Nothing was published."
-  goto :fail
-)
-
-if not exist "%APK_SOURCE%" (
-  set "ERROR_MESSAGE=Gradle completed but the debug APK was not found."
-  goto :fail
-)
-if not exist "dist" mkdir "dist"
-copy /Y "%APK_SOURCE%" "%APK_OUTPUT%" >nul
-if errorlevel 1 (
-  set "ERROR_MESSAGE=Could not copy the APK to dist\KanjiCard-debug.apk."
   goto :fail
 )
 
@@ -123,7 +89,7 @@ if not defined COMMIT_INTENT (
   goto :fail
 )
 
-echo [5/7] Staging and checking changed files...
+echo [4/5] Staging and checking changed files...
 git add -A
 if errorlevel 1 (
   set "ERROR_MESSAGE=Could not stage the changed files."
@@ -136,7 +102,7 @@ if errorlevel 1 (
   goto :fail
 )
 
-git grep --cached -I -n -E -e "BEGIN [A-Z ]*PRIVATE KEY" -e "github_pat_[0-9A-Za-z_]{20,}" -e "gh[pousr]_[0-9A-Za-z]{20,}" -e "AKIA[0-9A-Z]{16}" -- . ":(exclude)publish-and-build.bat" > "%SCAN_OUTPUT%"
+git grep --cached -I -n -E -e "BEGIN [A-Z ]*PRIVATE KEY" -e "github_pat_[0-9A-Za-z_]{20,}" -e "gh[pousr]_[0-9A-Za-z]{20,}" -e "AKIA[0-9A-Z]{16}" -- . ":(exclude)publish.bat" > "%SCAN_OUTPUT%"
 set "SCAN_EXIT=%ERRORLEVEL%"
 if "%SCAN_EXIT%"=="0" (
   echo.
@@ -156,28 +122,28 @@ if not "%SCAN_EXIT%"=="1" (
 
 git status --short
 git commit -m "%COMMIT_INTENT%" ^
-  -m "Constraint: Publishing and Android builds use the repository batch workflow" ^
+  -m "Constraint: GitHub publishing uses the repository batch workflow" ^
   -m "Confidence: high" ^
   -m "Scope-risk: moderate" ^
-  -m "Directive: Keep the scripted test, credential scan, push, and build gates intact" ^
-  -m "Tested: npm test; npm run seed:vocab; android assembleDebug" ^
-  -m "Not-tested: GitHub Actions completion after push"
+  -m "Directive: Keep the scripted test, credential scan, and push gates intact" ^
+  -m "Tested: npm test; npm run seed:vocab" ^
+  -m "Not-tested: GitHub Actions completion after push; Android build"
 if errorlevel 1 (
   set "ERROR_MESSAGE=Git commit failed."
   goto :fail
 )
 
 :push
-echo [6/7] Pushing %BRANCH% to GitHub...
+echo [5/5] Pushing %BRANCH% to GitHub...
 git push origin "%BRANCH%"
 if errorlevel 1 (
-  set "ERROR_MESSAGE=Git push failed. The local commit and APK were preserved."
+  set "ERROR_MESSAGE=Git push failed. The local commit was preserved."
   goto :fail
 )
 
-echo [7/7] Complete.
+echo.
+echo Publish complete.
 echo GitHub: https://github.com/frozenthera/KanjiCard
-echo APK: %APK_OUTPUT%
 echo GitHub Actions will deploy the pushed commit automatically.
 goto :success
 

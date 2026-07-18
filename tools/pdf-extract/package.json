@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "jlpt-kanji-cards": "file:../..",
-    "pdf-parse": "^2.4.5"
-  }
-}

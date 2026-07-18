@@ -98,32 +98,6 @@ jobs:
           echo "Using static app directory: $static_dir"
           echo "Package scripts available: $has_package"
 
-      - name: Set up Node
-        if: steps.project.outputs.has_package == 'true'
-        uses: actions/setup-node@v6
-        with:
-          node-version: 22
-
-      - name: Install dependencies
-        if: steps.project.outputs.has_package == 'true'
-        working-directory: ${{ steps.project.outputs.dir }}
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
-
-      - name: Test
-        if: steps.project.outputs.has_package == 'true'
-        working-directory: ${{ steps.project.outputs.dir }}
-        run: npm test
-
-      - name: Build vocab seed artifact
-        if: steps.project.outputs.has_package == 'true'
-        working-directory: ${{ steps.project.outputs.dir }}
-        run: npm run seed:vocab
-
       - name: Verify Firebase Pages config
         run: |
           test -n "$FIREBASE_API_KEY"

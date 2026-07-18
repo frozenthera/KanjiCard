@@ -61,3 +61,20 @@ local.properties
 tools/pagoda-pdfs/
 tools/pdf-extract/node_modules/
 web/firebase-debug.log
+
+# Local-only project sources
+/tests/
+/tools/
+/android/
+
+# Local-only project documentation
+*.md
+!README.md
+
+# Local Firebase deployment and runtime config
+.firebaserc*
+/firebase.json
+/firestore.rules
+/firestore.indexes.json
+/web/firebase-config.js
+/web/firebase-config.example.js

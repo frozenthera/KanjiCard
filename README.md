@@ -17,17 +17,25 @@ Then open `http://localhost:4173`.
 
 ## Publish and Build on Windows
 
-Run the repository batch file to test the web app, generate the Firestore seed artifact, build a debug APK, commit changed files with the required decision trailers, and push the current branch to GitHub:
+Publish changed files to GitHub with tests, Firestore seed generation, credential scanning, and the required commit trailers:
 
 ```powershell
-.\publish-and-build.bat "Describe why this change was made"
+.\publish.bat "Describe why this change was made"
 ```
 
-Double-clicking `publish-and-build.bat` also works. It prompts for the commit intent when tracked files have changed. The script stops before committing or pushing when tests, the credential scan, or the Android build fails. The APK is copied to `dist\KanjiCard-debug.apk`.
+Build the Android debug APK independently without committing or pushing anything:
+
+```powershell
+.\build-android.bat
+```
+
+Use `.\build-android.bat --clean` when a clean Gradle build is needed. Both batch files can also be started by double-clicking. The Android APK is copied to `dist\KanjiCard-debug.apk`.
 
 ## Android Port
 
 The `android/` folder is a native Android WebView wrapper. It packages the same files from `web/` as Android assets, so there is no separate Android copy of the vocabulary or UI.
+
+Android sources, tests, maintenance tools, extended design documents, and Firebase deployment configuration are local-only and intentionally excluded from the public Git repository.
 
 At runtime the app serves those packaged assets through the local WebView origin `https://jlptcards.local/index.html`. This keeps browser storage behavior close to the web app while preventing external navigation.
 
