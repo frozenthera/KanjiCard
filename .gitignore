@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.agents/
+.codex/
+.omx/
+.migration-backup/
+.gradle/
+build/
+android/.gradle/
+android/build/
+android/app/build/
+*.iml
+local.properties
+*.bak-*
+tools/pagoda-pdfs/
+tools/pdf-extract/node_modules/
+web/firebase-debug.log

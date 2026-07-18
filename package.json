@@ -1,0 +1,18 @@
+{
+  "name": "jlpt-kanji-cards",
+  "version": "1.0.0",
+  "private": true,
+  "description": "JLPT N5-N1 kanji-first vocabulary card trainer with Android WebView port.",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/app-regression.test.js",
+    "seed:vocab": "node tools/seed-firestore-vocab.js"
+  },
+  "main": "server.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "firebase": "^12.15.0"
+  }
+}

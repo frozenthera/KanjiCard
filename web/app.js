@@ -31,8 +31,6 @@
     wordCard: document.getElementById("wordCard"),
     kanjiText: document.getElementById("kanjiText"),
     levelBadge: document.getElementById("levelBadge"),
-    swipeMarkLeft: document.querySelector(".swipe-mark-left"),
-    swipeMarkRight: document.querySelector(".swipe-mark-right"),
     answerPanel: document.getElementById("answerPanel"),
     answerReading: document.getElementById("answerReading"),
     answerMeaning: document.getElementById("answerMeaning"),
@@ -44,8 +42,7 @@
     knownButton: document.getElementById("knownButton"),
     progressStat: document.getElementById("progressStat"),
     knownStat: document.getElementById("knownStat"),
-    unknownStat: document.getElementById("unknownStat"),
-    thinkStat: document.getElementById("thinkStat")
+    unknownStat: document.getElementById("unknownStat")
   };
 
   const defaultSettings = {
@@ -54,11 +51,12 @@
     sessionSize: 20
   };
 
-  const vocab = (window.JLPT_VOCAB || []).filter((word) => HAS_KANJI.test(word.kanji));
+  const vocab = mergeAlternateReadings(
+    (window.JLPT_VOCAB || []).filter((word) => HAS_KANJI.test(word.kanji))
+  );
   let settings = normalizeSettings(readStorage(SETTINGS_KEY, defaultSettings));
   let progress = normalizeProgress(readStorage(PROGRESS_KEY, { words: {}, history: [] }));
   let session = createEmptySession();
-  let drag = null;
   let activeTab = "study";
   let mistakeLevels = LEVELS.slice();
   const firebaseConfig = window.JLPT_FIREBASE_CONFIG || null;
@@ -125,6 +123,39 @@
       words: value && typeof value.words === "object" && value.words ? value.words : {},
       history: Array.isArray(value && value.history) ? value.history : []
     };
+  }
+
+  function mergeAlternateReadings(words) {
+    const merged = [];
+    const groups = new Map();
+
+    words.forEach((word) => {
+      const key = `${word.kanji}\u0000${word.meaning}`;
+      const existing = groups.get(key);
+
+      if (!existing) {
+        const copy = {
+          ...word,
+          ids: [word.id],
+          levels: [word.level],
+          readings: [word.reading]
+        };
+        groups.set(key, copy);
+        merged.push(copy);
+        return;
+      }
+
+      if (!existing.levels.includes(word.level)) {
+        existing.levels.push(word.level);
+      }
+      existing.ids.push(word.id);
+      if (!existing.readings.includes(word.reading)) {
+        existing.readings.push(word.reading);
+        existing.reading = existing.readings.join(" / ");
+      }
+    });
+
+    return merged;
   }
 
   function createEmptySession() {
@@ -408,7 +439,7 @@
   }
 
   function selectedPool() {
-    return vocab.filter((word) => settings.levels.includes(word.level) && !isPlainSuruVerb(word));
+    return vocab.filter((word) => word.levels.some((level) => settings.levels.includes(level)) && !isPlainSuruVerb(word));
   }
 
   function shuffle(items) {
@@ -431,8 +462,37 @@
     return Math.max(0, stats.wrongCount || 0) / seenCount;
   }
 
+  function aggregateWordStats(word) {
+    const records = word.ids
+      .map((id) => progress.words[id])
+      .filter((stats) => stats && stats.seenCount);
+
+    if (!records.length) {
+      return null;
+    }
+
+    const latest = records.reduce((current, stats) => (
+      (stats.lastSeenAt || 0) > (current.lastSeenAt || 0) ? stats : current
+    ));
+    const totals = records.reduce((result, stats) => ({
+      seenCount: result.seenCount + (stats.seenCount || 0),
+      correctCount: result.correctCount + (stats.correctCount || 0),
+      wrongCount: result.wrongCount + (stats.wrongCount || 0),
+      totalThinkMs: result.totalThinkMs + (stats.totalThinkMs || 0)
+    }), { seenCount: 0, correctCount: 0, wrongCount: 0, totalThinkMs: 0 });
+
+    return {
+      ...totals,
+      correctStreak: latest.correctStreak || 0,
+      avgThinkMs: totals.seenCount ? Math.round(totals.totalThinkMs / totals.seenCount) : 0,
+      lastThinkMs: latest.lastThinkMs || 0,
+      lastSeenAt: latest.lastSeenAt || 0,
+      lastResult: latest.lastResult || ""
+    };
+  }
+
   function reviewScore(word, now) {
-    const stats = progress.words[word.id];
+    const stats = aggregateWordStats(word);
     if (!stats || !stats.seenCount) {
       return 0;
     }
@@ -477,8 +537,8 @@
 
   function buildSessionQueue() {
     const pool = selectedPool();
-    const unseen = shuffle(pool.filter((word) => !progress.words[word.id] || !progress.words[word.id].seenCount));
-    const seen = pool.filter((word) => progress.words[word.id] && progress.words[word.id].seenCount);
+    const unseen = shuffle(pool.filter((word) => !aggregateWordStats(word)));
+    const seen = pool.filter((word) => aggregateWordStats(word));
     const totalSlots = Math.min(settings.sessionSize, pool.length);
     const reviewTarget = Math.round(totalSlots * (1 - settings.newWordRatio / 100));
     const preferredReviewSlots = Math.min(seen.length, reviewTarget);
@@ -637,17 +697,8 @@
     return { elapsed, stats };
   }
 
-  function setCardTransform(offsetX) {
-    const capped = Math.max(-180, Math.min(180, offsetX));
-    const rotation = capped / 18;
-    els.wordCard.style.transform = `translateX(${capped}px) rotate(${rotation}deg)`;
-    els.wordCard.classList.toggle("known-glow", capped > 42);
-    els.wordCard.classList.toggle("unknown-glow", capped < -42);
-  }
-
-  function resetCardTransform() {
-    els.wordCard.style.transform = "translateX(0) rotate(0deg)";
-    els.wordCard.classList.remove("dragging", "known-glow", "unknown-glow");
+  function resetCardFeedback() {
+    els.wordCard.classList.remove("known-glow", "unknown-glow");
   }
 
   function answerKnown() {
@@ -661,7 +712,7 @@
       return;
     }
 
-    resetCardTransform();
+    resetCardFeedback();
     session.awaitingManualNext = false;
     showAnswer(result);
     els.wordCard.classList.add("known-glow");
@@ -681,7 +732,7 @@
       return;
     }
 
-    resetCardTransform();
+    resetCardFeedback();
     els.wordCard.classList.add("unknown-glow");
     session.awaitingManualNext = false;
     showAnswer(result);
@@ -701,7 +752,7 @@
     session.awaitingManualNext = false;
     session.answerRevealedAt = Date.now();
     session.currentThinkMs = Math.max(250, session.answerRevealedAt - session.currentStartedAt);
-    resetCardTransform();
+    resetCardFeedback();
     showAnswer(null);
     renderChoiceState();
   }
@@ -713,7 +764,7 @@
       return;
     }
 
-    resetCardTransform();
+    resetCardFeedback();
     els.wordCard.classList.add("unknown-glow");
     session.awaitingManualNext = true;
     showAnswer(result);
@@ -910,8 +961,8 @@
     }
 
     const pool = selectedPool();
-    const learned = pool.filter((word) => progress.words[word.id] && progress.words[word.id].seenCount).length;
-    const wrong = pool.reduce((sum, word) => sum + ((progress.words[word.id] && progress.words[word.id].wrongCount) || 0), 0);
+    const learned = pool.filter((word) => aggregateWordStats(word)).length;
+    const wrong = pool.reduce((sum, word) => sum + ((aggregateWordStats(word) || {}).wrongCount || 0), 0);
     els.deckSummary.textContent = `${settings.levels.join(" ")} · ${pool.length}개 · 학습 ${learned}개 · 오답 ${wrong}회`;
   }
 
@@ -921,8 +972,8 @@
 
   function seenWordRecords() {
     return vocab
-      .map((word) => ({ word, stats: progress.words[word.id] }))
-      .filter((record) => mistakeLevels.includes(record.word.level) && record.stats && record.stats.seenCount)
+      .map((word) => ({ word, stats: aggregateWordStats(word) }))
+      .filter((record) => record.word.levels.some((level) => mistakeLevels.includes(level)) && record.stats && record.stats.seenCount)
       .sort((left, right) => {
         const rateDelta = wrongRate(right.stats) - wrongRate(left.stats);
         if (rateDelta) {
@@ -964,11 +1015,11 @@
 
     const detail = document.createElement("div");
     detail.className = "mistake-detail";
-    detail.textContent = `${word.level}${word.pos ? ` · ${word.pos}` : ""} · ${word.reading} · ${word.meaning}`;
+    detail.textContent = `${word.levels.join("/")}${word.pos ? ` · ${word.pos}` : ""} · ${word.reading} · ${word.meaning}`;
 
     const counts = document.createElement("div");
     counts.className = "mistake-counts";
-    counts.textContent = `제시 ${seenCount}회 · 오답 ${wrongCount}회 · 정답 ${correctCount}회 · 평균 고민 ${seconds(stats.avgThinkMs || 0)}`;
+    counts.textContent = `제시 ${seenCount}회 · 오답 ${wrongCount}회 · 정답 ${correctCount}회`;
 
     const rate = document.createElement("strong");
     rate.className = "mistake-rate";
@@ -1040,7 +1091,7 @@
 
   function renderCurrentCard() {
     if (!canUseStudyData()) {
-      resetCardTransform();
+      resetCardFeedback();
       els.answerPanel.hidden = true;
       els.kanjiText.textContent = authState.error ? "Login setup needed" : "Google login required";
       els.kanjiText.classList.add("empty-state");
@@ -1053,7 +1104,7 @@
     }
 
     const item = currentItem();
-    resetCardTransform();
+    resetCardFeedback();
     els.answerPanel.hidden = true;
     renderChoiceState();
 
@@ -1070,7 +1121,7 @@
     startCurrentCardTimer();
     els.kanjiText.classList.remove("empty-state");
     els.kanjiText.textContent = frontTextFor(item.word);
-    els.levelBadge.textContent = `JLPT ${item.word.level}`;
+    els.levelBadge.textContent = `JLPT ${item.word.levels.join("/")}`;
     els.levelBadge.hidden = false;
     renderChoiceState();
     if (activeTab === "study") {
@@ -1083,19 +1134,15 @@
       els.progressStat.textContent = "0/0";
       els.knownStat.textContent = "0";
       els.unknownStat.textContent = "0";
-      els.thinkStat.textContent = seconds(0);
       els.sessionProgressBar.style.width = "0%";
       return;
     }
 
     const total = session.targetTotal || session.queue.length;
     const completed = Math.min(session.known, total);
-    const averageThink = completed ? session.totalThinkMs / completed : 0;
-
     els.progressStat.textContent = `${completed}/${total}`;
     els.knownStat.textContent = String(session.known);
     els.unknownStat.textContent = String(session.unknown);
-    els.thinkStat.textContent = seconds(averageThink);
     els.sessionProgressBar.style.width = total ? `${(completed / total) * 100}%` : "0%";
   }
 
@@ -1137,15 +1184,11 @@
     if (session.revealed) {
       els.unknownButton.textContent = "← 틀림";
       els.knownButton.textContent = "맞음 →";
-      els.swipeMarkLeft.textContent = "틀림";
-      els.swipeMarkRight.textContent = "맞음";
       return;
     }
 
     els.unknownButton.textContent = "← 모르겠음";
     els.knownButton.textContent = "알고 있음 →";
-    els.swipeMarkLeft.textContent = "정답 보기";
-    els.swipeMarkRight.textContent = "정답 보기";
   }
 
   function renderInputs() {
@@ -1204,59 +1247,6 @@
     }
   }
 
-  function handlePointerDown(event) {
-    if (!currentItem()) {
-      return;
-    }
-
-    drag = {
-      id: event.pointerId,
-      startX: event.clientX,
-      currentX: event.clientX
-    };
-    els.wordCard.setPointerCapture(event.pointerId);
-    els.wordCard.classList.add("dragging");
-  }
-
-  function handlePointerMove(event) {
-    if (!drag || drag.id !== event.pointerId) {
-      return;
-    }
-
-    drag.currentX = event.clientX;
-    setCardTransform(drag.currentX - drag.startX);
-  }
-
-  function handlePointerUp(event) {
-    if (!drag || drag.id !== event.pointerId) {
-      return;
-    }
-
-    const offset = drag.currentX - drag.startX;
-    drag = null;
-    els.wordCard.releasePointerCapture(event.pointerId);
-    els.wordCard.classList.remove("dragging");
-
-    if (session.recorded) {
-      if (Math.abs(offset) < 24) {
-        handleCardTap();
-      } else {
-        resetCardTransform();
-      }
-      return;
-    }
-
-    if (offset > 96) {
-      answerKnown();
-    } else if (offset < -96) {
-      answerUnknown();
-    } else if (Math.abs(offset) < 24) {
-      handleCardTap();
-    } else {
-      resetCardTransform();
-    }
-  }
-
   async function resetProgress() {
     if (!window.confirm("학습 기록을 초기화합니다. 계속하시겠습니까?")) {
       return;
@@ -1306,13 +1296,7 @@
     els.knownButton.addEventListener("click", answerKnown);
     els.unknownButton.addEventListener("click", answerUnknown);
     els.nextButton.addEventListener("click", nextCard);
-    els.wordCard.addEventListener("pointerdown", handlePointerDown);
-    els.wordCard.addEventListener("pointermove", handlePointerMove);
-    els.wordCard.addEventListener("pointerup", handlePointerUp);
-    els.wordCard.addEventListener("pointercancel", () => {
-      drag = null;
-      resetCardTransform();
-    });
+    els.wordCard.addEventListener("click", handleCardTap);
     els.wordCard.addEventListener("keydown", (event) => {
       if (event.key === "ArrowRight") {
         answerKnown();

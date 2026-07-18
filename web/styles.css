@@ -357,7 +357,6 @@ h1 {
   place-items: center;
   min-height: 390px;
   padding: 18px 0;
-  touch-action: none;
 }
 
 #studyPanel:not([hidden]) .card-stage {
@@ -381,19 +380,13 @@ h1 {
   border-radius: 8px;
   box-shadow: var(--shadow);
   user-select: none;
-  transform: translateX(0) rotate(0deg);
-  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
-  will-change: transform;
+  transition: border-color 180ms ease, background-color 180ms ease;
 }
 
 #studyPanel:not([hidden]) .word-card {
   height: 100%;
   min-height: 0;
   aspect-ratio: auto;
-}
-
-.word-card.dragging {
-  transition: none;
 }
 
 .word-card.known-glow {
@@ -432,36 +425,6 @@ h1 {
   letter-spacing: 0;
   text-align: center;
   white-space: nowrap;
-}
-
-.swipe-mark {
-  position: absolute;
-  top: 18px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 900;
-  opacity: 0;
-  transform: scale(0.95);
-  transition: opacity 120ms ease, transform 120ms ease;
-}
-
-.swipe-mark-left {
-  left: 18px;
-  color: var(--red);
-  background: rgba(253, 232, 235, 0.88);
-}
-
-.swipe-mark-right {
-  right: 18px;
-  color: var(--green);
-  background: rgba(229, 244, 238, 0.88);
-}
-
-.word-card.unknown-glow .swipe-mark-left,
-.word-card.known-glow .swipe-mark-right {
-  opacity: 1;
-  transform: scale(1);
 }
 
 .answer-panel {
